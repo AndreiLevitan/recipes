@@ -1,10 +1,12 @@
 from flask_restful import reqparse, abort, Api, Resource
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
+from flask_wtf.file import FileRequired, FileField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired
 from flask import Flask, render_template, make_response, session, redirect
 import sqlite3
-import flask_reqparse
+import os
+import transliterate
 
 app = Flask(__name__)
 api = Api(app)
@@ -109,9 +111,9 @@ class RecipesModel:
         cursor.close()
         self.connection.commit()
 
-    def get(self, recipes_id):
+    def get(self, recipe_id):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM recipes WHERE id = ?", (str(recipes_id)))
+        cursor.execute("SELECT * FROM recipes WHERE id = ?", (str(recipe_id)))
         row = cursor.fetchone()
         return row
 
@@ -123,19 +125,26 @@ class RecipesModel:
         else:
             cursor.execute("SELECT * FROM recipes")
         rows = cursor.fetchall()
-        return rows
+        return reversed(rows)
 
-    def change(self, recipes_id, title, ingredient, content, img_src, user_id):
+    def check_unique_title(self, user_id, title):
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM recipes WHERE title = ? AND user_id = ?",
+                       (title, str(user_id)))
+        titles = cursor.fetchall()
+        return not bool(titles)
+
+    def change(self, recipe_id, title, ingredient, content, img_src, user_id):
         cursor = self.connection.cursor()
         cursor.execute('''UPDATE recipes SET title = ?, ingredient = ?
                           content = ?, img_src, user_id = ? 
-                          WHERE id = ?''', (title, content, ingredient, img_src, str(user_id), str(recipes_id)))
+                          WHERE id = ?''', (title, content, ingredient, img_src, str(user_id), str(recipe_id)))
         cursor.close()
         self.connection.commit()
 
-    def delete(self, recipes_id):
+    def delete(self, recipe_id):
         cursor = self.connection.cursor()
-        cursor.execute('''DELETE FROM recipes WHERE id = ?''', (str(recipes_id)))
+        cursor.execute('''DELETE FROM recipes WHERE id = ?''', (str(recipe_id)))
         cursor.close()
         self.connection.commit()
 
@@ -144,6 +153,14 @@ class RecipesList(Resource):
     def get(self):
         headers = {'Content-Type': 'text/html'}
         recipes = RecipesModel(db.get_connection()).get_all()
+        return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
+
+
+class Recipe(Resource):
+    def get(self, recipe_id):
+        headers = {'Content-Type': 'text/html'}
+        user_id = session['user_id']
+        recipe = RecipesModel(db.get_connection()).get(user_id)
         return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
 
 
@@ -214,6 +231,46 @@ class Logout(Resource):
         return redirect('/login')
 
 
+class RecipeForm(FlaskForm):
+    UPLOAD_FOLDER = 'static\\img\\recipes'
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+    title = StringField('Название', validators=[DataRequired(message='Введите название рецепта')])
+    description = TextAreaField('Описание и приготовление', validators=[DataRequired(message='Введите описание')])
+    ingredients = TextAreaField('Ингредиенты', validators=[DataRequired(message='Введите ингридиенты')])
+    img = FileField('Фото для обложки', validators=[FileRequired()])
+    submit = SubmitField('Добавить')
+
+
+class AddRecipe(Resource):
+    def __init__(self):
+        self.form = RecipeForm()
+
+    def allowed_file(self, filename):
+        ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+    def get(self):
+        headers = {'Content-Type': 'text/html'}
+        return make_response(render_template('add_recipe.html', form=self.form), 200, headers)
+
+    def post(self):
+        recipes = RecipesModel(db.get_connection())
+        user_id = session['user_id']
+        title = self.form.title.data
+        print(self.form.img.data.filename)
+        if self.form.validate_on_submit() and recipes.check_unique_title(user_id, title):
+            description = self.form.description.data
+            ingredients = self.form.ingredients.data
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'],
+                                     transliterate.translit(title, reversed=True).replace(' ', '_') + '.' +
+                                     self.form.img.data.filename.rsplit('.', 1)[1])
+            self.form.img.data.save(file_path)
+            recipes.insert(title, ingredients, description, file_path, user_id)
+            return redirect('/recipes')
+
+
 def abort_if_recipe_not_found(recipe_id):
     if not RecipesModel(db.get_connection()).get(recipe_id):
         abort(404, message="Recipe {} not found".format(recipe_id))
@@ -221,10 +278,10 @@ def abort_if_recipe_not_found(recipe_id):
 
 api.add_resource(RecipesList, '/recipes', '/')
 api.add_resource(AddRecipe, '/recipes/add')
+api.add_resource(Recipe, '/recipe/<int:recipe_id>')
 api.add_resource(Login, '/login')
 api.add_resource(Register, '/register')
 api.add_resource(Logout, '/logout')
-
 
 if __name__ == '__main__':
     db = DB()
