@@ -124,9 +124,14 @@ class RecipesList(Resource):
     def get(self):
         headers = {'Content-Type': 'text/html'}
         recipes = RecipesModel(db.get_connection()).get_all()
-        print(recipes)
         return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
 
+
+class Login(Resource):
+    def get(self):
+        headers = {'Content-Type': 'text/html'}
+
+        return make_response(render_template('login.html'), 200, headers)
 
 def abort_if_recipe_not_found(recipe_id):
     if not RecipesModel(db.get_connection()).get(recipe_id):
