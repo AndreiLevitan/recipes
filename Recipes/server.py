@@ -113,7 +113,7 @@ class RecipesModel:
 
     def get(self, recipe_id):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM recipes WHERE id = ?", (str(recipe_id)))
+        cursor.execute("SELECT * FROM recipes WHERE id = ?", (str(recipe_id),))
         row = cursor.fetchone()
         return row
 
@@ -121,7 +121,7 @@ class RecipesModel:
         cursor = self.connection.cursor()
         if user_id:
             cursor.execute("SELECT * FROM recipes WHERE user_id = ?",
-                           (str(user_id)))
+                           (str(user_id),))
         else:
             cursor.execute("SELECT * FROM recipes")
         rows = cursor.fetchall()
@@ -144,24 +144,30 @@ class RecipesModel:
 
     def delete(self, recipe_id):
         cursor = self.connection.cursor()
-        cursor.execute('''DELETE FROM recipes WHERE id = ?''', (str(recipe_id)))
+        cursor.execute('''DELETE FROM recipes WHERE id = ?''', (str(recipe_id),))
         cursor.close()
         self.connection.commit()
 
 
 class RecipesList(Resource):
     def get(self):
-        headers = {'Content-Type': 'text/html'}
-        recipes = RecipesModel(db.get_connection()).get_all()
-        return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
+        if 'username' in session:
+            headers = {'Content-Type': 'text/html'}
+            recipes = RecipesModel(db.get_connection()).get_all()
+            return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
+        return redirect('/login')
 
 
 class Recipe(Resource):
     def get(self, recipe_id):
-        headers = {'Content-Type': 'text/html'}
-        user_id = session['user_id']
-        recipe = RecipesModel(db.get_connection()).get(user_id)
-        return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
+        if 'username' in session:
+            headers = {'Content-Type': 'text/html'}
+            recipe = RecipesModel(db.get_connection()).get(recipe_id)
+            if session['user_id'] == recipe[5] or session['administrator']:
+                return make_response(render_template('recipe.html', recipe=recipe), 200, headers)
+            else:
+                return abort(403)
+        return redirect('/login')
 
 
 class LoginForm(FlaskForm):
@@ -252,23 +258,28 @@ class AddRecipe(Resource):
                filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
     def get(self):
-        headers = {'Content-Type': 'text/html'}
-        return make_response(render_template('add_recipe.html', form=self.form), 200, headers)
+        if 'username' in session:
+            headers = {'Content-Type': 'text/html'}
+            return make_response(render_template('add_recipe.html', form=self.form), 200, headers)
+        return redirect('/login')
 
     def post(self):
+        headers = {'Content-Type': 'text/html'}
         recipes = RecipesModel(db.get_connection())
         user_id = session['user_id']
         title = self.form.title.data
-        print(self.form.img.data.filename)
         if self.form.validate_on_submit() and recipes.check_unique_title(user_id, title):
             description = self.form.description.data
             ingredients = self.form.ingredients.data
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'],
-                                     transliterate.translit(title, reversed=True).replace(' ', '_') + '.' +
-                                     self.form.img.data.filename.rsplit('.', 1)[1])
-            self.form.img.data.save(file_path)
-            recipes.insert(title, ingredients, description, file_path, user_id)
-            return redirect('/recipes')
+            if self.allowed_file(self.form.img.data.filename):
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'],
+                                         transliterate.translit(title, reversed=True).replace(' ', '_') + '.' +
+                                         self.form.img.data.filename.rsplit('.', 1)[1])
+                self.form.img.data.save(file_path)
+                recipes.insert(title, ingredients, description, file_path, user_id)
+                return redirect('/recipes')
+            return make_response(render_template('add_recipe.html', form=self.form,
+                                                 uncorrect='Неверный тип файла (не jpg, jpeg, png, gif)'), 200, headers)
 
 
 def abort_if_recipe_not_found(recipe_id):
