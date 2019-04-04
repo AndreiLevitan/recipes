@@ -6,7 +6,6 @@ from flask import Flask, render_template, make_response, session, redirect
 import sqlite3
 import flask_reqparse
 
-
 app = Flask(__name__)
 api = Api(app)
 app.secret_key = "super secret key"
@@ -149,8 +148,8 @@ class RecipesList(Resource):
 
 
 class LoginForm(FlaskForm):
-    username = StringField('Логин', validators=[DataRequired()])
-    password = PasswordField('Пароль', validators=[DataRequired()])
+    username = StringField('Логин', validators=[DataRequired(message='Введите корректные данные')])
+    password = PasswordField('Пароль', validators=[DataRequired(message='Введите корректные данные')])
     submit = SubmitField('Войти')
 
 
@@ -173,8 +172,46 @@ class Login(Resource):
                 session['user_id'] = exists[1]
                 session['administrator'] = exists[2]
                 return redirect('/recipes')
-        return make_response(render_template('login.html', form=self.form, uncorrect=1), 200, headers)
+        return make_response(render_template('login.html', form=self.form, uncorrect='Неправильный логин/пароль'), 200,
+                             headers)
 
+
+class RegisterForm(FlaskForm):
+    username = StringField('Логин', validators=[DataRequired(message='Введите корректные данные')])
+    password = PasswordField('Пароль', validators=[DataRequired(message='Введите корректные данные')])
+    submit = SubmitField('Зарегистрироваться')
+
+
+class Register(Resource):
+    def __init__(self):
+        self.form = RegisterForm()
+
+    def get(self):
+        headers = {'Content-Type': 'text/html'}
+        return make_response(render_template('register.html', form=self.form), 200, headers)
+
+    def post(self):
+        headers = {'Content-Type': 'text/html'}
+        users = UsersModel(db.get_connection())
+        if self.form.validate_on_submit():
+            login = self.form.username.data
+            password = self.form.password.data
+            if users.is_unique(login):
+                users.insert(login, password, 0)
+                return redirect('/login')
+            return make_response(render_template('register.html', form=self.form, uncorrect="Логин уже занят"), 200,
+                                 headers)
+        return make_response(render_template('register.html', form=self.form, uncorrect="Введите корректные данные"),
+                             200,
+                             headers)
+
+
+class Logout(Resource):
+    def get(self):
+        session.pop('username', 0)
+        session.pop('user_id', 0)
+        session.pop('administrator', 0)
+        return redirect('/login')
 
 
 def abort_if_recipe_not_found(recipe_id):
@@ -183,7 +220,11 @@ def abort_if_recipe_not_found(recipe_id):
 
 
 api.add_resource(RecipesList, '/recipes', '/')
+api.add_resource(AddRecipe, '/recipes/add')
 api.add_resource(Login, '/login')
+api.add_resource(Register, '/register')
+api.add_resource(Logout, '/logout')
+
 
 if __name__ == '__main__':
     db = DB()
