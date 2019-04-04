@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}
+
+{% endblock %}
+{% block content %}
+<ul class="nav justify-content-end" style="background-color: white">
+    {% if session["administrator"] == 1 %}
+    <li class="nav-item">
+        <a class="nav-link" href="/admin">Панель администратора</a>
+    </li>
+    {% endif %}
+    <li class="nav-item">
+        <a class="nav-link active" href="/recipes">Добавить рецепт</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link disabled" href="/logout">Выйти</a>
+    </li>
+
+    <!--<li class="nav-item">-->
+    <!--<a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>-->
+    <!--</li>-->
+</ul>
+{% block user_content %}
+
+{% endblock %}
+{% endblock %}

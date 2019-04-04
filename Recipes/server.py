@@ -1,8 +1,10 @@
 from flask_restful import reqparse, abort, Api, Resource
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired
 from flask import Flask, render_template, make_response
 import sqlite3
 import flask_reqparse
-
 
 app = Flask(__name__)
 api = Api(app)
@@ -71,17 +73,19 @@ class RecipesModel:
         cursor.execute('''CREATE TABLE IF NOT EXISTS recipes 
                             (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                              title VARCHAR(100),
-                             content VARCHAR(1000),
+                             ingredient VARCHAR(1000),
+                             content VARCHAR(2000),
+                             img_src VARCHAR(100),
                              user_id INTEGER
                              )''')
         cursor.close()
         self.connection.commit()
 
-    def insert(self, title, content, user_id):
+    def insert(self, title, ingredient, content, img_src, user_id):
         cursor = self.connection.cursor()
         cursor.execute('''INSERT INTO recipes 
-                          (title, content, user_id) 
-                          VALUES (?,?,?)''', (title, content, str(user_id)))
+                          (title, ingredient, content, img_src, user_id) 
+                          VALUES (?,?,?,?,?)''', (title, ingredient, content, img_src, str(user_id)))
         cursor.close()
         self.connection.commit()
 
@@ -101,11 +105,11 @@ class RecipesModel:
         rows = cursor.fetchall()
         return rows
 
-    def change(self, recipes_id, title, content, user_id):
+    def change(self, recipes_id, title, ingredient, content, img_src, user_id):
         cursor = self.connection.cursor()
-        cursor.execute('''UPDATE recipes SET title = ?,
-                          content = ?, user_id = ? 
-                          WHERE id = ?''', (title, content, str(user_id), str(recipes_id)))
+        cursor.execute('''UPDATE recipes SET title = ?, ingredient = ?
+                          content = ?, img_src, user_id = ? 
+                          WHERE id = ?''', (title, content, ingredient, img_src, str(user_id), str(recipes_id)))
         cursor.close()
         self.connection.commit()
 
@@ -116,9 +120,23 @@ class RecipesModel:
         self.connection.commit()
 
 
+class RecipesList(Resource):
+    def get(self):
+        headers = {'Content-Type': 'text/html'}
+        recipes = RecipesModel(db.get_connection()).get_all()
+        print(recipes)
+        return make_response(render_template('recipes.html', recipes=recipes), 200, headers)
 
 
+def abort_if_recipe_not_found(recipe_id):
+    if not RecipesModel(db.get_connection()).get(recipe_id):
+        abort(404, message="Recipe {} not found".format(recipe_id))
 
+
+api.add_resource(RecipesList, '/recipes', '/')
 
 if __name__ == '__main__':
+    db = DB()
+    RecipesModel(db.get_connection()).init_table()
+    UsersModel(db.get_connection()).init_table()
     app.run(port=8080, host='127.0.0.1')
