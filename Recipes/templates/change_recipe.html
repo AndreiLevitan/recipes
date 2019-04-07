@@ -1,0 +1,57 @@
+{% extends "user.html" %}
+{% block title %}
+Изменение рецепта
+{% endblock %}
+{% block user_content %}
+<div class="card" style="width: 50%; margin-left: auto; margin-right: auto; margin-top: 1%;">
+    <div class="card-body">
+        <h5 class="card-title">Изменение рецепта</h5>
+        <form action="" method="post" enctype="multipart/form-data" novalidate>
+            {% if uncorrect %}
+            <div class="alert alert-danger" role="alert">
+                {{ uncorrect }}
+            </div>
+            {% endif %}
+            {{ form.hidden_tag() }}
+            <p class="card-text">
+                {{ form.title.label(for="title") }}
+                <br>
+            <div class="form-group">
+                {{ form.title(class_='form-control', id="title") }}<br>
+            </div>
+            {% for error in form.title.errors %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+            {% endfor %}
+            </p>
+            <p class="card-text">
+                {{ form.description.label(for="description") }}<br>
+                {{ form.description(class_='form-control', id="description") }}<br>
+                {% for error in form.description.errors %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+            {% endfor %}
+            </p>
+            <p class="card-text">
+                {{ form.ingredients.label(for="ingredients") }}
+                <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-placement="top"
+                        title="Вводите каждый ингридиент с новой строки"
+                        style="width: 18px;height:18px;border-radius:9px;text-align:center;padding-left:0;padding-right:0;padding-top:0;padding-bottom:3%;font-size:14px;">
+                    ?
+                </button>
+                <br>
+                {{ form.ingredients(class_='form-control', id="ingredients") }}<br>
+                {% for error in form.ingredients.errors %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+            {% endfor %}
+            </p>
+            <p class="card-text">{{ form.submit(class_="btn btn-primary", style="float: right")
+                }}</p>
+        </form>
+    </div>
+</div>
+{% endblock %}

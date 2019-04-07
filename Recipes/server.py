@@ -134,11 +134,11 @@ class RecipesModel:
         titles = cursor.fetchall()
         return not bool(titles)
 
-    def change(self, recipe_id, title, ingredient, content, img_src, user_id):
+    def change(self, recipe_id, title, ingredient, content):
         cursor = self.connection.cursor()
-        cursor.execute('''UPDATE recipes SET title = ?, ingredient = ?
-                          content = ?, img_src, user_id = ? 
-                          WHERE id = ?''', (title, content, ingredient, img_src, str(user_id), str(recipe_id)))
+        cursor.execute('''UPDATE recipes SET title = ?, ingredient = ?,
+                          content = ?f
+                          WHERE id = ?''', (title, content, ingredient, str(recipe_id)))
         cursor.close()
         self.connection.commit()
 
@@ -165,6 +165,28 @@ class Recipe(Resource):
             recipe = RecipesModel(db.get_connection()).get(recipe_id)
             if session['user_id'] == recipe[5] or session['administrator']:
                 return make_response(render_template('recipe.html', recipe=recipe), 200, headers)
+            else:
+                return abort(403)
+        return redirect('/login')
+
+    def delete(self, recipe_id):
+        if 'username' in session:
+            recipes = RecipesModel(db.get_connection())
+            recipe = recipes.get(recipe_id)
+            if session['user_id'] == recipe[5] or session['administrator']:
+                recipes.delete(recipe_id)
+                return redirect('/recipes')
+            else:
+                return abort(403)
+        return redirect('/login')
+
+    def put(self, recipe_id, title, ingredients, content):
+        if 'username' in session:
+            recipes = RecipesModel(db.get_connection())
+            recipe = recipes.get(recipe_id)
+            if session['user_id'] == recipe[5] or session['administrator']:
+                recipes.change(recipe_id, title, ingredients, content)
+                return redirect('/recipe/{}'.format(recipe_id))
             else:
                 return abort(403)
         return redirect('/login')
@@ -282,6 +304,38 @@ class AddRecipe(Resource):
                                                  uncorrect='Неверный тип файла (не jpg, jpeg, png, gif)'), 200, headers)
 
 
+class DeleteRecipe(Resource):
+    def get(self, recipe_id):
+        return Recipe().delete(recipe_id)
+
+
+class ChangeRecipe(Resource):
+    def __init__(self):
+        self.form = RecipeForm()
+
+    def get(self, recipe_id):
+        if 'username' in session:
+            recipes = RecipesModel(db.get_connection())
+            recipe = recipes.get(recipe_id)
+            print(recipe)
+            if session['user_id'] == recipe[5] or session['administrator']:
+                headers = {'Content-Type': 'text/html'}
+                self.form.title.data = recipe[1]
+                self.form.ingredients.data = recipe[2]
+                self.form.description.data = recipe[3]
+                return make_response(render_template('change_recipe.html', form=self.form), 200, headers)
+            else:
+                return abort(403)
+        return redirect('/login')
+
+    def post(self, recipe_id):
+        if self.form.ingredients.data and self.form.description.data and self.form.title.data:
+            description = self.form.description.data
+            ingredients = self.form.ingredients.data
+            title = self.form.title.data
+            return Recipe().put(recipe_id, title, ingredients, description)
+
+
 def abort_if_recipe_not_found(recipe_id):
     if not RecipesModel(db.get_connection()).get(recipe_id):
         abort(404, message="Recipe {} not found".format(recipe_id))
@@ -290,6 +344,8 @@ def abort_if_recipe_not_found(recipe_id):
 api.add_resource(RecipesList, '/recipes', '/')
 api.add_resource(AddRecipe, '/recipes/add')
 api.add_resource(Recipe, '/recipe/<int:recipe_id>')
+api.add_resource(DeleteRecipe, '/recipe/<int:recipe_id>/delete')
+api.add_resource(ChangeRecipe, '/recipe/<int:recipe_id>/change')
 api.add_resource(Login, '/login')
 api.add_resource(Register, '/register')
 api.add_resource(Logout, '/logout')

@@ -1,0 +1,22 @@
+{% extends "user.html" %}
+
+{% block title %}
+{{ recipe[1] }}
+{% endblock %}
+
+{% block user_content %}
+
+<div class="card" style="width:50%; margin-top:1%; margin-left:auto; margin-right:auto">
+    <img src="../{{recipe[4]}}" height="50%" class="card-img-top" alt="НЕТ ИЗОБРАЖЕНИЯ">
+    <div class="card-body">
+        <h5 class="card-title" style="text-align:center">{{ recipe[1] }}</h5>
+        <h6 class="card-title" style="text-align:center">Описание и приготовление</h6>
+        <p style="white-space: pre-wrap;" class="card-text">{{ recipe[3] }}</p>
+        <br>
+        <h6 class="card-title" style="text-align:center">Ингредиенты</h6>
+        <p style="white-space: pre-wrap;" class="card-text">{{ recipe[2] }}</p>
+    </div>
+    <a href="/recipe/{{ recipe[0] }}/delete" class="card-link"
+       style="width:90%; margin-bottom:3%; margin-left:auto; margin-right:auto; ">Удалить</a>
+</div>
+{% endblock %}
