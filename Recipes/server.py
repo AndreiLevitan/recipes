@@ -13,7 +13,7 @@ api = Api(app)
 app.secret_key = "super secret key"
 
 
-class DB:    # основной класс работы с БД
+class DB:  # основной класс работы с БД
     def __init__(self):
         conn = sqlite3.connect('recipes.db', check_same_thread=False)
         self.conn = conn
@@ -318,7 +318,6 @@ class ChangeRecipe(Resource):  # ресурс изменения рецепта
         if 'username' in session:
             recipes = RecipesModel(db.get_connection())
             recipe = recipes.get(recipe_id)
-            print(recipe)
             if session['user_id'] == recipe[5] or session['administrator']:
                 headers = {'Content-Type': 'text/html'}
                 self.form.title.data = recipe[1]
@@ -368,5 +367,4 @@ if __name__ == '__main__':
     db = DB()
     RecipesModel(db.get_connection()).init_table()
     UsersModel(db.get_connection()).init_table()
-    UsersModel(db.get_connection()).insert('Andrey', '1234', '1')
     app.run(port=8080, host='127.0.0.1')

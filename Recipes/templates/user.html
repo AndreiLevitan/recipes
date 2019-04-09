@@ -5,11 +5,9 @@
 {% block content %}
 
 
-
 <ul class="nav justify-content-end" style="background-color: white">
     <a class="nav-link disabled mr-auto" style="font-size:20px" href="/recipes">Recipe</a>
     {% if session["administrator"] == 1 %}
-
     <li class="nav-item">
         <a class="nav-link" href="/admin">Панель администратора</a>
     </li>
