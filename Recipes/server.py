@@ -6,14 +6,14 @@ from wtforms.validators import DataRequired
 from flask import Flask, render_template, make_response, session, redirect
 import sqlite3
 import os
-import transliterate
+import transliterate  # модуль транслитерации
 
 app = Flask(__name__)
 api = Api(app)
 app.secret_key = "super secret key"
 
 
-class DB:
+class DB:    # основной класс работы с БД
     def __init__(self):
         conn = sqlite3.connect('recipes.db', check_same_thread=False)
         self.conn = conn
@@ -25,7 +25,7 @@ class DB:
         self.conn.close()
 
 
-class UsersModel:
+class UsersModel:  # основная модель пользователя
     def __init__(self, connection):
         self.connection = connection
 
@@ -86,7 +86,7 @@ class UsersModel:
         self.connection.commit()
 
 
-class RecipesModel:
+class RecipesModel:  # основная модель рецепта
     def __init__(self, connection):
         self.connection = connection
 
@@ -149,7 +149,7 @@ class RecipesModel:
         self.connection.commit()
 
 
-class RecipesList(Resource):
+class RecipesList(Resource):  # ресурс списка рецептов
     def get(self):
         if 'username' in session:
             headers = {'Content-Type': 'text/html'}
@@ -158,7 +158,7 @@ class RecipesList(Resource):
         return redirect('/login')
 
 
-class Recipe(Resource):
+class Recipe(Resource):  # ресурс рецепта
     def get(self, recipe_id):
         if 'username' in session:
             headers = {'Content-Type': 'text/html'}
@@ -192,13 +192,13 @@ class Recipe(Resource):
         return redirect('/login')
 
 
-class LoginForm(FlaskForm):
+class LoginForm(FlaskForm):  # форма авторизации
     username = StringField('Логин', validators=[DataRequired(message='Введите корректные данные')])
     password = PasswordField('Пароль', validators=[DataRequired(message='Введите корректные данные')])
     submit = SubmitField('Войти')
 
 
-class Login(Resource):
+class Login(Resource):  # ресурс авторизации
     def __init__(self):
         self.form = LoginForm()
 
@@ -221,13 +221,13 @@ class Login(Resource):
                              headers)
 
 
-class RegisterForm(FlaskForm):
+class RegisterForm(FlaskForm):  # форма регистрации
     username = StringField('Логин', validators=[DataRequired(message='Введите корректные данные')])
     password = PasswordField('Пароль', validators=[DataRequired(message='Введите корректные данные')])
     submit = SubmitField('Зарегистрироваться')
 
 
-class Register(Resource):
+class Register(Resource):  # ресурс реегистрации
     def __init__(self):
         self.form = RegisterForm()
 
@@ -251,15 +251,16 @@ class Register(Resource):
                              headers)
 
 
-class Logout(Resource):
+class Logout(Resource):  # ресурс выхода из сессии
     def get(self):
-        session.pop('username', 0)
-        session.pop('user_id', 0)
-        session.pop('administrator', 0)
+        if 'username' in session:
+            session.pop('username', 0)
+            session.pop('user_id', 0)
+            session.pop('administrator', 0)
         return redirect('/login')
 
 
-class RecipeForm(FlaskForm):
+class RecipeForm(FlaskForm):  # форма рецепта
     UPLOAD_FOLDER = 'static\\img\\recipes'
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -270,7 +271,7 @@ class RecipeForm(FlaskForm):
     submit = SubmitField('Добавить')
 
 
-class AddRecipe(Resource):
+class AddRecipe(Resource):  # ресурс добавления рецепта
     def __init__(self):
         self.form = RecipeForm()
 
@@ -304,12 +305,12 @@ class AddRecipe(Resource):
                                                  uncorrect='Неверный тип файла (не jpg, jpeg, png, gif)'), 200, headers)
 
 
-class DeleteRecipe(Resource):
+class DeleteRecipe(Resource):  # ресурс удаления рецепта, превращает POST в DELETE запрос
     def get(self, recipe_id):
         return Recipe().delete(recipe_id)
 
 
-class ChangeRecipe(Resource):
+class ChangeRecipe(Resource):  # ресурс изменения рецепта
     def __init__(self):
         self.form = RecipeForm()
 
@@ -336,7 +337,19 @@ class ChangeRecipe(Resource):
             return Recipe().put(recipe_id, title, ingredients, description)
 
 
-def abort_if_recipe_not_found(recipe_id):
+class Admin(Resource):
+    def get(self):
+        if 'username' in session:
+            if session['administrator']:
+                headers = {'Content-Type': 'text/html'}
+                recipes = RecipesModel(db.get_connection()).get_all()
+                return make_response(render_template('admin.html', recipes=recipes), 200, headers)
+            else:
+                return abort(403)
+        return redirect('/login')
+
+
+def abort_if_recipe_not_found(recipe_id):  # форма выдачи ошибки про отсутствии рецепта
     if not RecipesModel(db.get_connection()).get(recipe_id):
         abort(404, message="Recipe {} not found".format(recipe_id))
 
@@ -347,6 +360,7 @@ api.add_resource(Recipe, '/recipe/<int:recipe_id>')
 api.add_resource(DeleteRecipe, '/recipe/<int:recipe_id>/delete')
 api.add_resource(ChangeRecipe, '/recipe/<int:recipe_id>/change')
 api.add_resource(Login, '/login')
+api.add_resource(Admin, '/admin')
 api.add_resource(Register, '/register')
 api.add_resource(Logout, '/logout')
 
@@ -354,4 +368,5 @@ if __name__ == '__main__':
     db = DB()
     RecipesModel(db.get_connection()).init_table()
     UsersModel(db.get_connection()).init_table()
+    UsersModel(db.get_connection()).insert('Andrey', '1234', '1')
     app.run(port=8080, host='127.0.0.1')

@@ -3,8 +3,13 @@
 
 {% endblock %}
 {% block content %}
+
+
+
 <ul class="nav justify-content-end" style="background-color: white">
+    <a class="nav-link disabled mr-auto" style="font-size:20px" href="/recipes">Recipe</a>
     {% if session["administrator"] == 1 %}
+
     <li class="nav-item">
         <a class="nav-link" href="/admin">Панель администратора</a>
     </li>
@@ -16,10 +21,8 @@
         <a class="nav-link disabled" href="/logout">Выйти</a>
     </li>
 
-    <!--<li class="nav-item">-->
-    <!--<a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>-->
-    <!--</li>-->
 </ul>
+
 {% block user_content %}
 
 {% endblock %}
